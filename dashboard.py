@@ -329,6 +329,24 @@ def load_990_data():
     )
     dr = dr.merge(dc_geo, on="ein", how="left")
     dr.rename(columns={"bmf_state": "state", "bmf_city": "city"}, inplace=True)
+
+    # Replace inf/-inf with NaN across all numeric columns (caused by division by zero
+    # in pre-computed metrics when expenses = 0)
+    numeric_cols = dr.select_dtypes(include="number").columns
+    dr[numeric_cols] = dr[numeric_cols].replace([np.inf, -np.inf], np.nan)
+
+    # Clip extreme outliers so charts are readable
+    clip_cols = {
+        "operating_margin_latest":   (-5,    5),
+        "months_of_reserves_latest": (0,  1200),
+        "program_efficiency_latest": (0,     1),
+        "overhead_ratio_latest":     (0,     1),
+        "asset_cagr":                (-1,    5),
+    }
+    for col, (lo, hi) in clip_cols.items():
+        if col in dr.columns:
+            dr[col] = dr[col].clip(lo, hi)
+
     return dr
 
 
